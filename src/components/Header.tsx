@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Plus, FolderOpen, Save, ChevronDown } from 'lucide-react';
+import { Plus, FolderOpen, Save, ChevronDown, Moon, Sun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -8,11 +8,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useAppState } from '../store/AppStateContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { StorageService } from '../utils/storage';
 import { ExportService } from '../utils/exportUtils';
 
 export const Header: React.FC = () => {
   const { state, dispatch } = useAppState();
+  const { theme, toggleTheme } = useTheme();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleNew = () => {
@@ -99,6 +101,15 @@ export const Header: React.FC = () => {
       </span>
       
       <div className="flex gap-2">
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={toggleTheme}
+          title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+        >
+          {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+        </Button>
+        
         <Button variant="outline" size="sm" onClick={handleNew}>
           <Plus className="w-4 h-4 mr-1" />
           New
