@@ -1,0 +1,1 @@
+# go-struct-mapping-visualizer
