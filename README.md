@@ -7,6 +7,20 @@ Currently, two official plugins are available:
 - [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
 - [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
 
+## Deployment
+
+This project is automatically deployed to GitHub Pages when changes are pushed to the `main` branch. The live application is available at:
+
+https://thitiph0n.github.io/go-struct-mapping-visualizer/
+
+### Manual Deployment
+
+To deploy manually:
+
+1. Build the project: `npm run build`
+2. The built files will be in the `dist` directory
+3. Push to the `main` branch to trigger automatic deployment
+
 ## Expanding the ESLint configuration
 
 If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
