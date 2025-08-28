@@ -25,7 +25,7 @@ export const MainCanvas: React.FC = () => {
       type: node.type,
       position: node.position,
       data: node.data,
-      dragHandle: '.drag-handle', // Optimize dragging performance
+      // Remove dragHandle restriction - allow dragging from anywhere on the node
     })), [state.flowConfig.nodes]);
   
   const reactFlowEdges: Edge[] = useMemo(() => 
@@ -58,8 +58,8 @@ export const MainCanvas: React.FC = () => {
   const handleNodesChange = useCallback((changes: NodeChange[]) => {
     // Handle different types of node changes
     changes.forEach(change => {
-      if (change.type === 'position' && change.position && change.dragging === false) {
-        // Only update app state when dragging stops to reduce re-renders
+      if (change.type === 'position' && change.position) {
+        // Update position during dragging for smooth interaction
         const node = state.flowConfig.nodes.find(n => n.id === change.id);
         if (node) {
           const updatedNode = {
