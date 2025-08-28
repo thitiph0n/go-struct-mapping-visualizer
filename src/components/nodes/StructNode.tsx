@@ -46,8 +46,8 @@ export const StructNode: React.FC<StructNodeProps> = ({ data, selected }) => {
       />
       
       <CardHeader className="p-4 pb-2">
-        {/* Header */}
-        <div className="flex items-center justify-between">
+        {/* Header with drag handle */}
+        <div className="flex items-center justify-between drag-handle cursor-move">
           <CardTitle className="text-base">{struct.name}</CardTitle>
           <div className="flex gap-1">
             {struct.isValid ? (
