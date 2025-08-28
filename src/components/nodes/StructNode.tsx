@@ -30,7 +30,7 @@ export const StructNode: React.FC<StructNodeProps> = ({ data, selected }) => {
   }
 
   return (
-    <Card className={`w-64 shadow-lg ${selected ? 'ring-2 ring-primary' : ''}`}>
+    <Card className={`w-64 shadow-lg cursor-move ${selected ? 'ring-2 ring-primary' : ''}`}>
       {/* Node handles for connections */}
       <Handle
         type="target"
@@ -47,7 +47,7 @@ export const StructNode: React.FC<StructNodeProps> = ({ data, selected }) => {
       
       <CardHeader className="p-4 pb-2">
         {/* Header with drag handle */}
-        <div className="flex items-center justify-between drag-handle cursor-move">
+        <div className="flex items-center justify-between drag-handle">
           <CardTitle className="text-base">{struct.name}</CardTitle>
           <div className="flex gap-1">
             {struct.isValid ? (
