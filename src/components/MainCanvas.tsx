@@ -24,7 +24,8 @@ export const MainCanvas: React.FC = () => {
       id: node.id,
       type: node.type,
       position: node.position,
-      data: node.data
+      data: node.data,
+      dragHandle: '.drag-handle', // Optimize dragging performance
     })), [state.flowConfig.nodes]);
   
   const reactFlowEdges: Edge[] = useMemo(() => 
@@ -33,7 +34,8 @@ export const MainCanvas: React.FC = () => {
       source: edge.source,
       target: edge.target,
       sourceHandle: edge.sourceHandle,
-      targetHandle: edge.targetHandle
+      targetHandle: edge.targetHandle,
+      animated: false, // Disable animation for better performance
     })), [state.flowConfig.edges]);
 
   const onConnect = useCallback(
@@ -54,9 +56,10 @@ export const MainCanvas: React.FC = () => {
   );
 
   const handleNodesChange = useCallback((changes: NodeChange[]) => {
-    // Update positions in app state
+    // Handle different types of node changes
     changes.forEach(change => {
       if (change.type === 'position' && change.position && change.dragging === false) {
+        // Only update app state when dragging stops to reduce re-renders
         const node = state.flowConfig.nodes.find(n => n.id === change.id);
         if (node) {
           const updatedNode = {
@@ -65,18 +68,37 @@ export const MainCanvas: React.FC = () => {
           };
           dispatch({ type: 'UPDATE_NODE', payload: updatedNode });
         }
+      } else if (change.type === 'remove') {
+        // Handle node deletion
+        dispatch({ type: 'REMOVE_NODE', payload: change.id });
+      } else if (change.type === 'select') {
+        // Handle node selection
+        const node = state.flowConfig.nodes.find(n => n.id === change.id);
+        if (node && change.selected) {
+          dispatch({ type: 'SELECT_NODE', payload: node });
+        } else if (!change.selected) {
+          dispatch({ type: 'CLEAR_SELECTION' });
+        }
       }
     });
   }, [state.flowConfig.nodes, dispatch]);
 
   const handleEdgesChange = useCallback((changes: EdgeChange[]) => {
-    // Handle edge deletions
+    // Handle edge changes
     changes.forEach(change => {
       if (change.type === 'remove') {
         dispatch({ type: 'REMOVE_EDGE', payload: change.id });
+      } else if (change.type === 'select') {
+        // Handle edge selection
+        const edge = state.flowConfig.edges.find(e => e.id === change.id);
+        if (edge && change.selected) {
+          dispatch({ type: 'SELECT_EDGE', payload: edge });
+        } else if (!change.selected) {
+          dispatch({ type: 'CLEAR_SELECTION' });
+        }
       }
     });
-  }, [dispatch]);
+  }, [state.flowConfig.edges, dispatch]);
 
   const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
     const appNode = state.flowConfig.nodes.find(n => n.id === node.id);
@@ -110,6 +132,9 @@ export const MainCanvas: React.FC = () => {
         nodeTypes={nodeTypes}
         fitView
         fitViewOptions={{ padding: 0.1 }}
+        nodesDraggable={true}
+        nodesConnectable={true}
+        elementsSelectable={true}
       >
         <Controls className="bg-background border border-border" />
         <Background variant={BackgroundVariant.Dots} gap={12} size={1} className="opacity-30" />
