@@ -21,10 +21,7 @@ export const MainCanvas: React.FC = () => {
   // Memoize nodes and edges to prevent unnecessary re-renders during dragging
   const reactFlowNodes: Node[] = useMemo(() => 
     state.flowConfig.nodes.map(node => ({
-      id: node.id,
-      type: node.type,
-      position: node.position,
-      data: node.data,
+      ...node,
       dragHandle: '.drag-handle', // Optimize dragging performance
     })), [state.flowConfig.nodes]);
   
@@ -55,50 +52,19 @@ export const MainCanvas: React.FC = () => {
     [dispatch]
   );
 
-  const handleNodesChange = useCallback((changes: NodeChange[]) => {
-    // Handle different types of node changes
-    changes.forEach(change => {
-      if (change.type === 'position' && change.position && change.dragging === false) {
-        // Only update app state when dragging stops to reduce re-renders
-        const node = state.flowConfig.nodes.find(n => n.id === change.id);
-        if (node) {
-          const updatedNode = {
-            ...node,
-            position: change.position
-          };
-          dispatch({ type: 'UPDATE_NODE', payload: updatedNode });
-        }
-      } else if (change.type === 'remove') {
-        // Handle node deletion
-        dispatch({ type: 'REMOVE_NODE', payload: change.id });
-      } else if (change.type === 'select') {
-        // Handle node selection
-        const node = state.flowConfig.nodes.find(n => n.id === change.id);
-        if (node && change.selected) {
-          dispatch({ type: 'SELECT_NODE', payload: node });
-        } else if (!change.selected) {
-          dispatch({ type: 'CLEAR_SELECTION' });
-        }
-      }
-    });
-  }, [state.flowConfig.nodes, dispatch]);
+  const handleNodesChange = useCallback(
+    (changes: NodeChange[]) => {
+      dispatch({ type: 'APPLY_NODE_CHANGES', payload: changes });
+    },
+    [dispatch]
+  );
 
-  const handleEdgesChange = useCallback((changes: EdgeChange[]) => {
-    // Handle edge changes
-    changes.forEach(change => {
-      if (change.type === 'remove') {
-        dispatch({ type: 'REMOVE_EDGE', payload: change.id });
-      } else if (change.type === 'select') {
-        // Handle edge selection
-        const edge = state.flowConfig.edges.find(e => e.id === change.id);
-        if (edge && change.selected) {
-          dispatch({ type: 'SELECT_EDGE', payload: edge });
-        } else if (!change.selected) {
-          dispatch({ type: 'CLEAR_SELECTION' });
-        }
-      }
-    });
-  }, [state.flowConfig.edges, dispatch]);
+  const handleEdgesChange = useCallback(
+    (changes: EdgeChange[]) => {
+      dispatch({ type: 'APPLY_EDGE_CHANGES', payload: changes });
+    },
+    [dispatch]
+  );
 
   const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
     const appNode = state.flowConfig.nodes.find(n => n.id === node.id);

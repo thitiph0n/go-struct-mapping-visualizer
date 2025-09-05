@@ -113,7 +113,15 @@ export const PropertiesPanel: React.FC = () => {
                   <Input
                     type="text"
                     value={selectedStruct.name}
-                    readOnly
+                    onChange={(e) =>
+                      dispatch({
+                        type: 'UPDATE_STRUCT_DETAILS',
+                        payload: {
+                          id: selectedStruct.id,
+                          updates: { name: e.target.value },
+                        },
+                      })
+                    }
                   />
                 </div>
 

@@ -1,3 +1,4 @@
+import { applyEdgeChanges, applyNodeChanges } from '@xyflow/react';
 import type { AppState, AppAction } from '../types';
 
 export const initialState: AppState = {
@@ -50,6 +51,20 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         }
       };
 
+    case 'UPDATE_STRUCT_DETAILS':
+      return {
+        ...state,
+        flowConfig: {
+          ...state.flowConfig,
+          structs: state.flowConfig.structs.map(struct =>
+            struct.id === action.payload.id
+              ? { ...struct, ...action.payload.updates }
+              : struct
+          ),
+          updatedAt: new Date(),
+        },
+      };
+
     case 'REMOVE_STRUCT':
       return {
         ...state,
@@ -95,6 +110,16 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           updatedAt: new Date()
         }
       };
+    
+    case 'APPLY_NODE_CHANGES':
+      return {
+        ...state,
+        flowConfig: {
+          ...state.flowConfig,
+          nodes: applyNodeChanges(action.payload, state.flowConfig.nodes),
+          updatedAt: new Date()
+        }
+      };
 
     case 'ADD_EDGE':
       return {
@@ -124,6 +149,16 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         flowConfig: {
           ...state.flowConfig,
           edges: state.flowConfig.edges.filter(edge => edge.id !== action.payload),
+          updatedAt: new Date()
+        }
+      };
+
+    case 'APPLY_EDGE_CHANGES':
+      return {
+        ...state,
+        flowConfig: {
+          ...state.flowConfig,
+          edges: applyEdgeChanges(action.payload, state.flowConfig.edges),
           updatedAt: new Date()
         }
       };

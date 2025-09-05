@@ -119,3 +119,41 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* React Flow theming overrides (light & dark driven by CSS variables) */
+.react-flow__controls {
+  background: var(--background) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: 0 2px 6px 0 oklch(0 0 0 / 0.08);
+  backdrop-filter: blur(4px);
+}
+
+.react-flow__controls-button {
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--border) !important;
+  color: var(--foreground) !important;
+  transition: background-color 0.15s, color 0.15s;
+}
+.react-flow__controls-button:last-child { border-bottom: 0 !important; }
+.react-flow__controls-button:hover {
+  background: var(--accent) !important;
+  color: var(--accent-foreground) !important;
+}
+
+/* Edge / handle coloring */
+.react-flow__handle { background: var(--primary); border: 1px solid var(--border); }
+.react-flow__handle:hover { box-shadow: 0 0 0 4px oklch(0 0 0 / 0.08); }
+.react-flow__edge-path { stroke: var(--muted-foreground); }
+.react-flow__edge.selected .react-flow__edge-path { stroke: var(--primary); stroke-width: 2; }
+
+/* Panel (e.g., attribution / other panels) */
+.react-flow__panel { background: var(--background); color: var(--muted-foreground); }
+.dark .react-flow__panel { background: var(--background); }
+
+/* Minimap (if enabled later) */
+.react-flow__minimap { background: var(--card); border: 1px solid var(--border); }
+.react-flow__minimap-mask { fill: var(--background); }
+
+/* Prevent flash of wrong theme on first paint */
+html { color-scheme: light dark; }

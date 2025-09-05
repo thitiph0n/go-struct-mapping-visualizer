@@ -4,7 +4,6 @@ import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { MainCanvas } from './components/MainCanvas';
 import { PropertiesPanel } from './components/PropertiesPanel';
-import { Footer } from './components/Footer';
 import { appReducer, initialState } from './store/appReducer';
 import { AppStateProvider } from './store/AppStateContext';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -33,9 +32,6 @@ function App() {
               {/* Properties panel */}
               <PropertiesPanel />
             </div>
-
-            {/* Footer */}
-            <Footer />
           </div>
         </ReactFlowProvider>
       </AppStateProvider>

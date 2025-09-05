@@ -1,3 +1,5 @@
+import type { NodeChange, EdgeChange } from '@xyflow/react';
+
 // Core data models for the Go Struct Mapping Visualizer
 
 export interface StructField {
@@ -74,13 +76,19 @@ export type AppAction =
   | { type: 'SET_FLOW_CONFIG'; payload: FlowConfig }
   | { type: 'ADD_STRUCT'; payload: StructDefinition }
   | { type: 'UPDATE_STRUCT'; payload: StructDefinition }
+  | {
+      type: 'UPDATE_STRUCT_DETAILS';
+      payload: { id: string; updates: Partial<StructDefinition> };
+    }
   | { type: 'REMOVE_STRUCT'; payload: string }
   | { type: 'ADD_NODE'; payload: FlowNode }
   | { type: 'UPDATE_NODE'; payload: FlowNode }
   | { type: 'REMOVE_NODE'; payload: string }
+  | { type: 'APPLY_NODE_CHANGES'; payload: NodeChange[] }
   | { type: 'ADD_EDGE'; payload: FlowEdge }
   | { type: 'UPDATE_EDGE'; payload: FlowEdge }
   | { type: 'REMOVE_EDGE'; payload: string }
+  | { type: 'APPLY_EDGE_CHANGES'; payload: EdgeChange[] }
   | { type: 'ADD_TRANSFORMER'; payload: TransformerNode }
   | { type: 'UPDATE_TRANSFORMER'; payload: TransformerNode }
   | { type: 'REMOVE_TRANSFORMER'; payload: string }
