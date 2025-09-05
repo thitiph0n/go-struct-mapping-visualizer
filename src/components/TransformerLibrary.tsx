@@ -85,6 +85,14 @@ export const TransformerLibrary: React.FC = () => {
     };
 
     dispatch({ type: 'ADD_TRANSFORMER', payload: transformer });
+
+    const node = {
+      id: `node_${transformer.id}`,
+      type: 'transformer' as const,
+      position: { x: Math.random() * 500, y: Math.random() * 400 },
+      data: { transformerId: transformer.id, label: transformer.name },
+    };
+    dispatch({ type: 'ADD_NODE', payload: node });
   };
 
   return (

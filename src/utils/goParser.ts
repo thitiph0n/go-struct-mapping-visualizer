@@ -58,16 +58,46 @@ export class GoStructParser {
    */
   private static parseFields(structBody: string): StructField[] {
     const fields: StructField[] = [];
-    
-    // Split by lines and process each field declaration
-    const lines = structBody.split('\n')
-      .map(line => line.trim())
-      .filter(line => line && !line.startsWith('//'));
-    
-    for (const line of lines) {
-      const field = this.parseField(line);
-      if (field) {
-        fields.push(field);
+    const lines = structBody.split('\n');
+    let i = 0;
+
+    while (i < lines.length) {
+      const line = lines[i].trim();
+      i++;
+
+      if (!line || line.startsWith('//')) continue;
+
+      if (line.includes('struct {')) {
+        // Nested struct
+        let fieldName = line.split(/\s+/)[0];
+        let braceCount = 1;
+        let nestedStructBody = '';
+        
+        while (i < lines.length && braceCount > 0) {
+          const nestedLine = lines[i];
+          if (nestedLine.includes('{')) braceCount++;
+          if (nestedLine.includes('}')) braceCount--;
+          if (braceCount > 0) nestedStructBody += nestedLine + '\n';
+          i++;
+        }
+        
+        const nestedFields = this.parseFields(nestedStructBody);
+        // For now, we'll just represent the nested struct as a field.
+        // A more advanced implementation could create a separate StructDefinition.
+        fields.push({
+          name: fieldName,
+          type: 'struct {...}',
+          isPointer: false,
+          isSlice: false,
+          isMap: false,
+          jsonTag: this.extractJsonTag(line),
+        });
+
+      } else {
+        const field = this.parseField(line);
+        if (field) {
+          fields.push(field);
+        }
       }
     }
     
@@ -78,58 +108,30 @@ export class GoStructParser {
    * Parse a single field declaration
    */
   private static parseField(line: string): StructField | null {
-    // Handle embedded structs (just type name without field name)
-    const embeddedMatch = line.match(/^(\*?)(\w+)(\s+`[^`]*`)?$/);
-    if (embeddedMatch) {
-      return {
-        name: embeddedMatch[2], // Use type name as field name for embedded
-        type: embeddedMatch[2],
-        isPointer: embeddedMatch[1] === '*',
-        isSlice: false,
-        isMap: false,
-        jsonTag: this.extractJsonTag(embeddedMatch[3] || '')
-      };
-    }
+    // Regex to handle various field declarations, including embedded structs and complex types
+    const fieldMatch = line.match(/^(\w+)?\s*(\*?\[?\]?[\w\.]+\s*`[^`]*`?)$/);
+    if (!fieldMatch) return null;
 
-    // Regular field: name type `json:"tag"`
-    const fieldMatch = line.match(/^(\w+)\s+(\*?)(\[\]|\[\w+\])?(\w+(?:\.\w+)*(?:\[.*?\])*)\s*(`[^`]*`)?/);
-    if (!fieldMatch) {
-      return null;
-    }
+    let [, name, rest] = fieldMatch;
+    const tagString = (rest.match(/`[^`]*`/) || [''])[0];
+    let type = rest.replace(tagString, '').trim();
 
-    const [, name, pointer, arrayBrackets, baseType, tagString] = fieldMatch;
-    
-    // Determine if it's a slice or map
-    let isSlice = false;
-    let isMap = false;
-    let fullType = baseType;
-    
-    if (arrayBrackets) {
-      if (arrayBrackets === '[]') {
-        isSlice = true;
-        fullType = `[]${baseType}`;
-      } else if (arrayBrackets.startsWith('[') && arrayBrackets.includes(']')) {
-        // Could be array [N] or map [K]V syntax
-        if (baseType.includes('[')) {
-          isMap = true;
-        }
-        fullType = `${arrayBrackets}${baseType}`;
-      }
+    if (!name) {
+      // Embedded struct
+      name = type.replace('*', '').split('.').pop()!;
     }
     
-    // Handle map types like map[string]int
-    if (baseType.startsWith('map[')) {
-      isMap = true;
-      fullType = baseType;
-    }
+    const isPointer = type.startsWith('*');
+    const isSlice = type.startsWith('[]');
+    const isMap = type.startsWith('map[');
 
     return {
       name,
-      type: pointer + fullType,
-      isPointer: pointer === '*',
+      type,
+      isPointer,
       isSlice,
       isMap,
-      jsonTag: this.extractJsonTag(tagString || '')
+      jsonTag: this.extractJsonTag(tagString)
     };
   }
 

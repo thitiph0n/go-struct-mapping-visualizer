@@ -17,29 +17,32 @@ export class GoCodeGenerator {
       const mappings = this.analyzeMappings(flowConfig);
       
       if (mappings.length === 0) {
-        result.errors.push('No mappings found. Connect struct fields to generate code.');
+        result.errors.push('No complete mappings found. A mapping requires at least one source and one target struct connected by fields.');
         return result;
       }
 
-      // Generate the mapping function
-      const { sourceStruct, targetStruct } = mappings[0];
-      
-      if (!sourceStruct || !targetStruct) {
-        result.errors.push('Source or target struct not found.');
-        return result;
-      }
+      let allCode = '';
+      for (const mapping of mappings) {
+        const { sourceStruct, targetStruct } = mapping;
+        
+        if (!sourceStruct || !targetStruct) {
+          result.errors.push('Source or target struct not found for a mapping.');
+          continue;
+        }
 
-      result.functionName = `Map${sourceStruct.name}To${targetStruct.name}`;
-      
-      // Generate function signature
-      const functionSignature = `func ${result.functionName}(src ${sourceStruct.name}) ${targetStruct.name}`;
-      
-      // Generate function body
-      const functionBody = this.generateMappingBody(mappings[0]);
-      
-      result.code = `${functionSignature} {
+        const functionName = `Map${sourceStruct.name}To${targetStruct.name}`;
+        const functionSignature = `func ${functionName}(src ${sourceStruct.name}) ${targetStruct.name}`;
+        const functionBody = this.generateMappingBody(mapping);
+        
+        allCode += `${functionSignature} {
 ${functionBody}
-}`;
+}
+
+`;
+      }
+
+      result.code = allCode.trim();
+      result.functionName = mappings.length > 1 ? 'MultipleMappings' : `Map${mappings[0].sourceStruct?.name}To${mappings[0].targetStruct?.name}`;
 
       // Add required imports
       this.addRequiredImports(result, flowConfig.transformers);
@@ -55,43 +58,65 @@ ${functionBody}
    * Analyze flow configuration to extract mapping relationships
    */
   private static analyzeMappings(flowConfig: FlowConfig) {
-    const mappings: Array<{
-      sourceStruct?: StructDefinition;
-      targetStruct?: StructDefinition;
-      fieldMappings: Array<{
-        sourceField: string;
-        targetField: string;
-        transformer?: TransformerNode;
-      }>;
-    }> = [];
+    const structNodeIds = new Set(flowConfig.nodes.filter(n => n.type === 'struct').map(n => n.id));
+    const structMap = new Map(flowConfig.structs.map(s => [s.id, s]));
+    const nodeToStructIdMap = new Map(flowConfig.nodes.map(n => [n.id, n.data.structId]));
 
-    // For MVP, create a simple mapping between first two structs
-    if (flowConfig.structs.length >= 2) {
-      const [sourceStruct, targetStruct] = flowConfig.structs;
-      
-      const fieldMappings = flowConfig.edges.map(edge => {
-        const sourceHandle = edge.sourceHandle?.replace('field-', '').replace('-out', '');
-        const targetHandle = edge.targetHandle?.replace('field-', '').replace('-in', '');
-        
-        const transformer = edge.data?.transformerId 
-          ? flowConfig.transformers.find(t => t.id === edge.data?.transformerId)
-          : undefined;
+    const outgoingEdges = new Map<string, any[]>();
+    const incomingEdges = new Map<string, any[]>();
 
-        return {
-          sourceField: sourceHandle || 'unknown',
-          targetField: targetHandle || 'unknown',
-          transformer
-        };
-      });
+    for (const edge of flowConfig.edges) {
+      if (!outgoingEdges.has(edge.source)) outgoingEdges.set(edge.source, []);
+      outgoingEdges.get(edge.source)!.push(edge);
 
-      mappings.push({
-        sourceStruct,
-        targetStruct,
-        fieldMappings
-      });
+      if (!incomingEdges.has(edge.target)) incomingEdges.set(edge.target, []);
+      incomingEdges.get(edge.target)!.push(edge);
     }
 
-    return mappings;
+    const sourceNodes = Array.from(structNodeIds).filter(nodeId => 
+      outgoingEdges.has(nodeId) && !incomingEdges.has(nodeId)
+    );
+
+    const targetNodes = Array.from(structNodeIds).filter(nodeId =>
+      incomingEdges.has(nodeId) && !outgoingEdges.has(nodeId)
+    );
+
+    if (sourceNodes.length === 0 || targetNodes.length === 0) {
+      return [];
+    }
+
+    // For now, we'll assume a single mapping from the first source to the first target.
+    // A more advanced implementation would trace paths from each source.
+    const sourceStructId = nodeToStructIdMap.get(sourceNodes[0]);
+    const targetStructId = nodeToStructIdMap.get(targetNodes[0]);
+
+    if (!sourceStructId || !targetStructId) return [];
+
+    const sourceStruct = structMap.get(sourceStructId);
+    const targetStruct = structMap.get(targetStructId);
+
+    if (!sourceStruct || !targetStruct) return [];
+
+    const fieldMappings = flowConfig.edges.map(edge => {
+      const sourceHandle = edge.sourceHandle?.replace('field-', '').replace('-out', '');
+      const targetHandle = edge.targetHandle?.replace('field-', '').replace('-in', '');
+      
+      const transformer = edge.data?.transformerId 
+        ? flowConfig.transformers.find(t => t.id === edge.data?.transformerId)
+        : undefined;
+
+      return {
+        sourceField: sourceHandle || 'unknown',
+        targetField: targetHandle || 'unknown',
+        transformer
+      };
+    });
+
+    return [{
+      sourceStruct,
+      targetStruct,
+      fieldMappings
+    }];
   }
 
   /**
@@ -100,28 +125,41 @@ ${functionBody}
   private static generateMappingBody(mapping: {
     sourceStruct?: StructDefinition;
     targetStruct?: StructDefinition;
-    fieldMappings: Array<{
+    fieldMappings: Array<{ 
       sourceField: string;
       targetField: string;
       transformer?: TransformerNode;
     }>;
-  }): string {
+  }, indent: string = '    '): string {
     
-    if (!mapping.targetStruct) return '    return target\n';
+    if (!mapping.targetStruct) return `${indent}return target\n`;
 
-    let body = `    var target ${mapping.targetStruct.name}\n\n`;
+    let body = `${indent}var target ${mapping.targetStruct.name}\n\n`;
 
     // Generate field mappings
     if (mapping.fieldMappings.length > 0) {
-      body += '    // Field mappings\n';
+      body += `${indent}// Field mappings\n`;
       
       for (const fieldMapping of mapping.fieldMappings) {
+        const sourceFieldPath = `src.${fieldMapping.sourceField}`;
+        const targetFieldPath = `target.${fieldMapping.targetField}`;
+
         if (fieldMapping.transformer) {
           // Use transformer
-          body += `    target.${fieldMapping.targetField} = ${fieldMapping.transformer.name}(src.${fieldMapping.sourceField})\n`;
+          body += `${indent}${targetFieldPath} = ${fieldMapping.transformer.name}(${sourceFieldPath})\n`;
         } else {
-          // Direct assignment
-          body += `    target.${fieldMapping.targetField} = src.${fieldMapping.sourceField}\n`;
+          // Direct assignment, check for nested structs
+          const sourceField = mapping.sourceStruct?.fields.find(f => f.name === fieldMapping.sourceField);
+          const targetField = mapping.targetStruct?.fields.find(f => f.name === fieldMapping.targetField);
+
+          if (sourceField?.type.startsWith('struct') && targetField?.type.startsWith('struct')) {
+            // This is a nested struct. We'd need a more complex system to resolve the
+            // mapping function for the nested type. For now, we'll assume a function exists.
+            const nestedMapFuncName = `Map${sourceField.type}To${targetField.type}`;
+            body += `${indent}${targetFieldPath} = ${nestedMapFuncName}(${sourceFieldPath})\n`;
+          } else {
+            body += `${indent}${targetFieldPath} = ${sourceFieldPath}\n`;
+          }
         }
       }
     } else {
@@ -132,14 +170,14 @@ ${functionBody}
       const commonFields = targetFields.filter(field => sourceFields.includes(field));
       
       if (commonFields.length > 0) {
-        body += '    // Auto-mapped fields with matching names\n';
+        body += `${indent}// Auto-mapped fields with matching names\n`;
         for (const field of commonFields) {
-          body += `    target.${field} = src.${field}\n`;
+          body += `${indent}target.${field} = src.${field}\n`;
         }
       }
     }
 
-    body += '\n    return target';
+    body += `\n${indent}return target`;
     
     return body;
   }

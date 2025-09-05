@@ -18,7 +18,8 @@ export const initialState: AppState = {
   error: undefined
 };
 
-export function appReducer(state: AppState, action: AppAction): AppState {
+// Base reducer
+function coreAppReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     case 'SET_FLOW_CONFIG':
       return {
@@ -239,4 +240,39 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     default:
       return state;
   }
+}
+
+// Higher-order reducer for undo/redo
+let history: AppState[] = [initialState];
+let historyIndex = 0;
+
+export function appReducer(state: AppState, action: AppAction): AppState {
+  if (action.type === 'UNDO') {
+    if (historyIndex > 0) {
+      historyIndex--;
+      return history[historyIndex];
+    }
+    return state;
+  }
+
+  if (action.type === 'REDO') {
+    if (historyIndex < history.length - 1) {
+      historyIndex++;
+      return history[historyIndex];
+    }
+    return state;
+  }
+
+  // For other actions, calculate the new state
+  const newState = coreAppReducer(state, action);
+
+  // If the new state is different from the current state, add it to history
+  if (newState !== state) {
+    // Truncate history if we've undone
+    history = history.slice(0, historyIndex + 1);
+    history.push(newState);
+    historyIndex++;
+  }
+
+  return newState;
 }

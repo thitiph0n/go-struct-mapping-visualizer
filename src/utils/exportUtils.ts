@@ -1,3 +1,4 @@
+import html2canvas from 'html2canvas';
 import { GoCodeGenerator } from './codeGenerator';
 import { StorageService } from './storage';
 import type { FlowConfig } from '../types';
@@ -8,31 +9,15 @@ export class ExportService {
    */
   static async exportPNG(canvasElement: HTMLElement): Promise<void> {
     try {
-      // Create canvas from the React Flow element
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
+      const canvas = await html2canvas(canvasElement, {
+        backgroundColor: null, // Use the element's background
+        logging: false,
+        useCORS: true,
+      });
       
-      if (!ctx) {
-        throw new Error('Canvas context not available');
-      }
-
-      // Set canvas dimensions based on the element
-      const rect = canvasElement.getBoundingClientRect();
-      canvas.width = rect.width;
-      canvas.height = rect.height;
-
-      // For MVP, create a simple screenshot using html2canvas-like approach
-      // This is a simplified version - in production you'd use a proper library
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#000000';
-      ctx.font = '16px Arial';
-      ctx.fillText('Struct Mapping Diagram', 20, 30);
-      
-      // Download the canvas as PNG
       const link = document.createElement('a');
       link.download = 'struct-mapping-diagram.png';
-      link.href = canvas.toDataURL();
+      link.href = canvas.toDataURL('image/png');
       link.click();
       
     } catch (error) {
@@ -46,40 +31,71 @@ export class ExportService {
    */
   static exportSVG(flowConfig: FlowConfig): void {
     try {
-      // Create a simple SVG representation
-      let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
-  <rect width="100%" height="100%" fill="#ffffff"/>
-  <text x="20" y="30" font-family="Arial" font-size="16" fill="#000000">Struct Mapping Diagram: ${flowConfig.name}</text>`;
+      const { nodes, edges } = flowConfig;
+      const PADDING = 50;
+      
+      // Calculate bounding box
+      let minX = Infinity, minY = Infinity, maxX = 0, maxY = 0;
+      nodes.forEach(node => {
+        minX = Math.min(minX, node.position.x);
+        minY = Math.min(minY, node.position.y);
+        maxX = Math.max(maxX, node.position.x + (node.width || 256)); // default width
+        maxY = Math.max(maxY, node.position.y + (node.height || 150)); // default height
+      });
 
-      // Add struct nodes as rectangles
-      let yOffset = 80;
-      for (const struct of flowConfig.structs) {
-        svg += `
-  <rect x="50" y="${yOffset}" width="200" height="120" fill="#f0f0f0" stroke="#cccccc"/>
-  <text x="60" y="${yOffset + 20}" font-family="Arial" font-size="14" font-weight="bold" fill="#000000">${struct.name}</text>`;
-        
-        let fieldY = yOffset + 40;
-        for (const field of struct.fields.slice(0, 4)) { // Show first 4 fields
-          svg += `
-  <text x="60" y="${fieldY}" font-family="Arial" font-size="10" fill="#333333">${field.name}: ${field.type}</text>`;
-          fieldY += 15;
+      const width = maxX - minX + 2 * PADDING;
+      const height = maxY - minY + 2 * PADDING;
+
+      let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+<style>
+  .struct-node { fill: #f9fafb; stroke: #e5e7eb; stroke-width: 1; font-family: sans-serif; }
+  .struct-title { font-size: 14px; font-weight: bold; }
+  .struct-field { font-size: 12px; }
+  .edge-path { fill: none; stroke: #9ca3af; stroke-width: 2; }
+</style>
+<rect width="100%" height="100%" fill="#ffffff"/>`;
+
+      // Render edges
+      edges.forEach(edge => {
+        const sourceNode = nodes.find(n => n.id === edge.source);
+        const targetNode = nodes.find(n => n.id === edge.target);
+        if (sourceNode && targetNode) {
+          const sourceX = sourceNode.position.x - minX + PADDING + (sourceNode.width || 256);
+          const sourceY = sourceNode.position.y - minY + PADDING + 70; // Approximate handle position
+          const targetX = targetNode.position.x - minX + PADDING;
+          const targetY = targetNode.position.y - minY + PADDING + 70;
+          svg += `\n  <path d="M ${sourceX} ${sourceY} C ${sourceX + 50} ${sourceY}, ${targetX - 50} ${targetY}, ${targetX} ${targetY}" class="edge-path" />`;
         }
-        
-        if (struct.fields.length > 4) {
-          svg += `
-  <text x="60" y="${fieldY}" font-family="Arial" font-size="10" fill="#666666">... ${struct.fields.length - 4} more fields</text>`;
+      });
+
+      // Render nodes
+      nodes.forEach(node => {
+        const x = node.position.x - minX + PADDING;
+        const y = node.position.y - minY + PADDING;
+        const struct = flowConfig.structs.find(s => s.id === node.data.structId);
+        if (struct) {
+          svg += `\n  <g transform="translate(${x}, ${y})">
+    <rect class="struct-node" width="${node.width || 256}" height="${node.height || 150}" rx="8" />
+    <text x="10" y="25" class="struct-title">${struct.name}</text>`;
+          
+          let fieldY = 45;
+          struct.fields.slice(0, 5).forEach(field => {
+            svg += `\n    <text x="10" y="${fieldY}" class="struct-field">${field.name}: ${field.type}</text>`;
+            fieldY += 18;
+          });
+          if (struct.fields.length > 5) {
+            svg += `\n    <text x="10" y="${fieldY}" class="struct-field">...</text>`;
+          }
+          svg += `\n  </g>`;
         }
-        
-        yOffset += 150;
-      }
+      });
 
       svg += '\n</svg>';
 
-      // Download the SVG
       const blob = new Blob([svg], { type: 'image/svg+xml' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.download = 'struct-mapping-diagram.svg';
+      link.download = `${flowConfig.name.toLowerCase().replace(/\s+/g, '-')}-diagram.svg`;
       link.href = url;
       link.click();
       URL.revokeObjectURL(url);
